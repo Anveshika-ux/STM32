@@ -1,0 +1,98 @@
+*
+ * STM32 with DHT11 Temperature and Humidity sensor, LoRa SX1278, and Oled Display
+ * DHT11 connected to PA2
+ * 
+ * Oled connection
+ * B6 to SCL of Oled
+ * B7 to SDA of Oled
+ * 
+ * 
+ * Lora CONNECTIONS
+ * SX1278 PINS      STM32F103C
+ * GND              GND
+ * VCC              3.3V
+ * SCK              PA5
+ * MISO             PA6
+ * MOSI             PA7
+ * NSS              PA4
+ */
+ 
+ 
+#include <Wire.h>      //Library for using I2C 
+#include <Adafruit_SSD1306_STM32.h>
+#include <DHT.h>                    //Library for using DHT sensor 
+#include <LoRa_STM32.h>
+ 
+#define SS PA4
+#define RST PB0
+#define DI0 PA8
+ 
+#define TX_P 17
+#define BAND 433E6
+#define ENCRYPT 0x78
+ 
+#define DHTPIN PA2 
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);     //initilize object dht for class DHT with DHT pin with STM32 and DHT type as DHT11
+ float h;
+ float t;
+// for Oled display ssd1306
+#define OLED_RESET -1  
+Adafruit_SSD1306 display(OLED_RESET);
+ 
+void setup()
+{
+  Serial.begin(9600);
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the
+  pinMode(DHTPIN, OUTPUT);
+  dht.begin();          //Begins to receive Temperature and humidity values.                        
+ 
+ LoRa.setTxPower(TX_P);
+  LoRa.setSyncWord(ENCRYPT);
+  
+  LoRa.setPins(SS, RST, DI0);
+  if (!LoRa.begin(BAND)) 
+  {
+    Serial.println("Starting LoRa failed!");
+    while (1);
+  }
+  //Clear the buffer.
+  display.clearDisplay();
+}
+ 
+void loop()
+{
+  h = dht.readHumidity();       //Gets Humidity value
+  t = dht.readTemperature();    //Gets Temperature value
+  DisplayData();
+String MyMessage = ""; 
+MyMessage = MyMessage + String(h) + "," + String(t);
+    // send packet
+  LoRa.beginPacket();
+  LoRa.print(MyMessage);
+  LoRa.endPacket();
+  delay(100);
+}
+ 
+void DisplayData()
+{
+ 
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.println("Temp:");
+  display.setTextSize(1);
+  display.setCursor(0,20); // column , row
+  display.println(t);
+  display.setTextSize(2);
+  display.setCursor(0,35);
+  display.println("Hum:");
+  display.setTextSize(1);
+  display.setCursor(0,55); // column , row
+  display.println(h);
+ 
+  display.display();
+  delay(100);
+  
+}

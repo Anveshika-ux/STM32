@@ -1,0 +1,96 @@
+/* 
+ * ESP8266 LoRa Gateway for Temperature and Humidity Monitoring
+ * Receiver side"Master Node".
+ * 
+ * 
+  Module SX1278 // Nodemcu ESP8266    
+    GND         ->   GND
+    Vcc         ->   3.3V
+    MISO        ->   D6
+    MOSI        ->   D7    
+    SLCK        ->   D5
+    Nss         ->   D8
+    Dio0        ->   D4
+    RST         ->   D0      
+ */
+ 
+#include <SPI.h>
+#include <LoRa.h> 
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+  
+char auth[] = "nPmAvH8sz3mwxzTbP2GUmtGcykbQnKAs";
+ 
+// Your WiFi credentials.
+// Set password to "" for open networks.
+char ssid[] = "AndroidAP7DF8";  // WiFi router name
+char pass[] = "Eclinic"; // password
+ 
+String inString = "";    // string to hold input
+String MyMessage = "";
+ 
+#define Nss 15 // D8 pin CS
+#define rst 16 // D0 
+#define dio0 2 // D4
+ 
+float Hum_Value = 0.0; 
+float Temp_Value = 0.0; 
+ 
+void setup() {
+  Serial.begin(9600);
+  Blynk.begin(auth, ssid, pass);
+   Serial.println("LoRa Receiver");
+  LoRa.setPins(Nss, rst, dio0);
+  
+  if (!LoRa.begin(433E6)) { // or 915E6
+    Serial.println("Starting LoRa failed!");
+    while (1);
+  }
+}
+ 
+void loop() {
+ 
+  Blynk.run();
+  // try to parse packet
+  int packetSize = LoRa.parsePacket();
+  if (packetSize) { 
+    // read packet   
+    
+    while (LoRa.available())
+    {
+      int inChar = LoRa.read();
+      inString += (char)inChar;
+      MyMessage = inString;     
+    }
+ 
+String q = getValue(inString, ',', 0); // Humidity
+String r = getValue(inString, ',', 1); // Temperature
+ 
+Hum_Value = q.toFloat();
+Blynk.virtualWrite(V2,q); // Humidity
+Blynk.virtualWrite(V3,r); // Temperature
+ 
+inString = "";     
+LoRa.packetRssi();    
+  }
+      
+  Serial.println(MyMessage);  
+  
+}
+ 
+ 
+String getValue(String data, char separator, int index)
+{
+    int found = 0;
+    int strIndex[] = { 0, -1 };
+    int maxIndex = data.length() - 1;
+ 
+    for (int i = 0; i <= maxIndex && found <= index; i++) {
+        if (data.charAt(i) == separator || i == maxIndex) {
+            found++;
+            strIndex[0] = strIndex[1] + 1;
+            strIndex[1] = (i == maxIndex) ? i+1 : i;
+        }
+    }
+    return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
+}
